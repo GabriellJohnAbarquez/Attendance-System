@@ -4,6 +4,22 @@ require_once "Core/dbconfig.php";
 require_once "Classes/Admin.php";
 require_once "Classes/Course.php";
 require_once "Classes/Layout.php";
+require_once "Classes/ExcuseLetter.php";
+
+$excuseObj = new ExcuseLetter($pdo);
+
+$excuseLetters = [];
+if (isset($_POST['viewExcuses'])) {
+    $excuseLetters = $excuseObj->getLettersByCourseYear($_POST['course_id'], $_POST['year_level']);
+}
+
+if (isset($_POST['updateExcuseStatus'])) {
+    $excuseObj->updateStatus($_POST['excuse_id'], $_POST['status']);
+    // reload with course/year passed in hidden fields
+    if (!empty($_POST['course_id']) && !empty($_POST['year_level'])) {
+        $excuseLetters = $excuseObj->getLettersByCourseYear($_POST['course_id'], $_POST['year_level']);
+    }
+}
 
 if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== "admin") {
     header("Location: index(login).php"); 
@@ -37,13 +53,6 @@ if (isset($_POST['viewReport'])) {
 
 echo Layout::header("Admin Dashboard");
 ?>
-
-<div class="row mb-4">
-    <div class="col-md-12 d-flex justify-content-between align-items-center">
-        <h2>Welcome, <?= htmlspecialchars($_SESSION['user']['username']); ?> (Admin)</h2>
-        <a href="logout.php" class="btn btn-danger">Logout</a>
-    </div>
-</div>
 
 <!-- Add Course -->
 <div class="card shadow-sm mb-4">
@@ -161,6 +170,89 @@ echo Layout::header("Admin Dashboard");
             </div>
         <?php elseif (isset($_POST['viewReport'])): ?>
             <p class="text-center mt-3">No attendance records found.</p>
+        <?php endif; ?>
+    </div>
+</div>
+
+<!-- Excuse Letters Management -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-warning text-dark">
+        <h5 class="mb-0">Manage Excuse Letters</h5>
+    </div>
+    <div class="card-body">
+        <form method="POST" class="row g-3">
+            <div class="col-md-5">
+                <select name="course_id" class="form-select" required>
+                    <?php foreach ($courses as $c): ?>
+                        <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['course_name']); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-md-5">
+                <select name="year_level" class="form-select" required>
+                    <option value="1">1st Year</option>
+                    <option value="2">2nd Year</option>
+                    <option value="3">3rd Year</option>
+                    <option value="4">4th Year</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" name="viewExcuses" class="btn btn-warning w-100">View</button>
+            </div>
+        </form>
+
+        <?php if (!empty($excuseLetters)): ?>
+            <div class="table-responsive mt-3">
+                <table class="table table-striped table-bordered align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Student</th>
+                            <th>Course</th>
+                            <th>Year</th>
+                            <th>Reason</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($excuseLetters as $row): ?>
+                            <tr>
+                                <td><?= htmlspecialchars($row['username']); ?></td>
+                                <td><?= htmlspecialchars($row['course_name']); ?></td>
+                                <td><?= htmlspecialchars($row['year_level']); ?></td>
+                                <td><?= htmlspecialchars($row['reason']); ?></td>
+                                <td>
+                                    <span class="badge 
+                                        <?= $row['status'] === 'Approved' ? 'bg-success' : 
+                                           ($row['status'] === 'Rejected' ? 'bg-danger' : 'bg-warning'); ?>">
+                                        <?= htmlspecialchars($row['status']); ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <!-- Approve -->
+                                    <form method="POST" class="d-inline">
+                                        <input type="hidden" name="excuse_id" value="<?= $row['id']; ?>">
+                                        <input type="hidden" name="status" value="Approved">
+                                        <input type="hidden" name="course_id" value="<?= $row['course_id']; ?>">
+                                        <input type="hidden" name="year_level" value="<?= $row['year_level']; ?>">
+                                        <button type="submit" name="updateExcuseStatus" class="btn btn-sm btn-success">Approve</button>
+                                    </form>
+                                    <!-- Reject -->
+                                    <form method="POST" class="d-inline">
+                                        <input type="hidden" name="excuse_id" value="<?= $row['id']; ?>">
+                                        <input type="hidden" name="status" value="Rejected">
+                                        <input type="hidden" name="course_id" value="<?= $row['course_id']; ?>">
+                                        <input type="hidden" name="year_level" value="<?= $row['year_level']; ?>">
+                                        <button type="submit" name="updateExcuseStatus" class="btn btn-sm btn-danger">Reject</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php elseif (isset($_POST['viewExcuses'])): ?>
+            <p class="text-center mt-3">No excuse letters found.</p>
         <?php endif; ?>
     </div>
 </div>
